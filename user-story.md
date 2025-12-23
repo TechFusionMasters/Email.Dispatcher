@@ -1,168 +1,155 @@
-# User Story 1  
-## Reliable Email Dispatch with Queue, Retries, DLQ, and Idempotency
+# User Story 2  
+## Automated Retry Scheduler for Failed Emails (DB-driven) with RabbitMQ Re-queueing
 
-**Project Name:** Email.Dispatcher  
-**Title:** Send emails asynchronously with reliable retries and no duplicates
+**Project Name:** Email.Dispatcher.RetryScheduler  
+**Title:** Automatically retry failed emails using backoff and re-publish to RabbitMQ
+
+---
+
+## Tech Stack (Must Follow)
+- **.NET Worker Service**
+  - `Email.Dispatcher.RetryScheduler` (runs continuously)
+- **Database (SQL Server or equivalent)**
+  - `EmailLog` table (holds Status, AttemptCount, NextAttemptAt, errors)
+  - Recommended index on `(Status, NextAttemptAt)`
+- **RabbitMQ**
+  - Main Queue: `email.dispatcher.send` (re-queue EmailId for resend)
+  - Optional Retry Queue: `email.dispatcher.retry` (if you want separate routing)
+- **Configuration**
+  - `RetryIntervalSeconds` (default 60)
+  - `MaxAttempts` (default 8)
+  - `BackoffSchedule` (default: 1m, 5m, 15m, 1h, 3h, 6h, 12h, 24h)
 
 ---
 
 ## Business Goal
-As a system, I want to send emails (OTP, notifications, invoices, etc.) asynchronously so that:
-- API responses are fast
-- emails are not lost
-- failures are retried automatically
-- duplicates are prevented
-- operations teams can track and replay failures
+As a system, I want failed emails to be retried automatically so that:
+- transient issues (SMTP outage, network issues) recover without manual effort
+- customers receive emails eventually
+- system avoids duplicate sends
+- operations teams only handle true “dead” emails
 
 ---
 
 ## Actors
-- End User (triggers actions requiring email)
-- API (creates email request)
-- Email.Dispatcher – Email Sender Worker (RabbitMQ consumer)
-- Email.Dispatcher – Retry Scheduler Worker
-- Ops/Admin (monitor and replay failed emails)
+- Email.Dispatcher (sender worker that marks failures)
+- Database (stores retry state)
+- Email.Dispatcher.RetryScheduler (worker that schedules retries)
+- RabbitMQ (re-queues EmailId messages)
+- Ops/Admin (monitors Dead emails if retries exhausted)
 
 ---
 
 ## Functional Flow
 
-### 1) Create Email Request (API)
-**Given** a user action requires an email  
-**When** the API processes the request  
-**Then** the API must:
-- Save an Email record in DB with:
-  - Status = Pending
-  - AttemptCount = 0
-  - NextAttemptAt = NOW
-  - MessageKey (unique idempotency key)
-- Publish a message to RabbitMQ containing:
-  - EmailId (and optionally MessageKey)
-- Return success to the client without waiting for the email to send
+### 1) Failure State Is Recorded (Pre-condition)
+**Given** an email send attempt failed  
+**When** Email.Dispatcher (sender worker) updates DB  
+**Then** the email record must contain:
+- `Status = Failed`
+- `AttemptCount = AttemptCount + 1`
+- `LastError = <summary>`
+- `NextAttemptAt = NOW + Backoff(AttemptCount)`
+- `LockedUntil = NULL` (or cleared)
 
 **Acceptance Criteria**
-- API must not send emails directly
-- If publish fails after DB save, email must still be recoverable
-- Email record must always exist before sending is attempted
+- Every failed email must have a `NextAttemptAt` set
+- Permanent failures should not be retried (marked `Dead` by sender worker or by separate policy)
 
 ---
 
-### 2) Send Email  
-(**Email.Dispatcher – RabbitMQ Consumer**)
-
-**Given** a message is consumed from RabbitMQ with EmailId  
-**When** the worker processes the message  
+### 2) Retry Scheduler Loop (Email.Dispatcher.RetryScheduler)
+**Given** the RetryScheduler service is running  
+**When** the scheduler interval elapses (every 30s / 1 min)  
 **Then** it must:
-- Load the email row from DB
-- Perform idempotency check:
-  - If Status = Sent → acknowledge and stop
-- Acquire DB lock/lease to avoid parallel sends
-- Attempt to send email via SMTP/provider
 
-**On Success**
+#### Step A — Select Due Retries (DB)
+Select only emails where:
+- `Status = Failed`
+- `NextAttemptAt <= NOW`
+- `AttemptCount < MaxAttempts`
+- `LockedUntil IS NULL OR LockedUntil < NOW` (if you use lease locking)
+
+#### Step B — Claim Rows (Prevent double scheduling)
+For selected rows, update them (atomic claim) to avoid multiple schedulers picking same rows:
+- set `LockedUntil = NOW + LeaseDuration` (e.g., 2 minutes)
+- optionally set `Status = RetryQueued`
+
+#### Step C — Publish to RabbitMQ
+For each claimed email:
+- Publish message to `email.dispatcher.send` containing:
+  - `EmailId`
+  - `MessageKey`
+
+#### Step D — Update DB after publish
+- Set `Status = Pending` (or keep `RetryQueued` until sender picks it)
+- Clear `LockedUntil` (or keep until send starts, based on your design)
+- Store `LastQueuedAt = NOW` (optional)
+
+**Acceptance Criteria**
+- Scheduler must only pick “due” emails (no full table scan)
+- Scheduler must never publish the same EmailId twice for the same attempt window
+- Scheduler must be safe when multiple instances run (idempotent/claiming behavior)
+
+---
+
+### 3) Exhausted Retries → Mark as Dead
+**Given** an email has reached MaxAttempts  
+**When** scheduler detects `AttemptCount >= MaxAttempts`  
+**Then** it must:
 - Update DB:
-  - Status = Sent
-  - SentAt = NOW
-- Acknowledge message
-
-**On Failure**
-- Classify error:
-  - Transient → retry
-  - Permanent → dead
-- Update DB retry fields
-- Acknowledge message
+  - `Status = Dead`
+  - `DeadReason = MaxAttemptsExceeded`
+  - keep `LastError`
+- (Optional) Publish a DLQ/alert event for Ops visibility
 
 **Acceptance Criteria**
-- At-least-once delivery must not cause duplicates
-- Multiple worker instances must be safe
-- Queue must never block due to failures
+- Emails exceeding MaxAttempts must not be retried automatically
+- Dead emails must be visible for Ops/Admin manual action
 
 ---
 
-### 3) Retry Handling  
-(**Email.Dispatcher – Retry Scheduler**)
-
-**Given** an email failed transiently  
-**When** retry is required  
-**Then** the system must:
-- Update DB:
-  - Status = Failed
-  - AttemptCount = AttemptCount + 1
-  - NextAttemptAt = NOW + Backoff(AttemptCount)
-  - LastError
-- Retry Scheduler runs every 30s / 1 min
-- Select emails where:
-  - Status = Failed
-  - NextAttemptAt <= NOW
-  - AttemptCount < MaxAttempts
-- Publish EmailId back to RabbitMQ
-
-**Acceptance Criteria**
-- Scheduler must only process due retries
-- Backoff must increase with attempts
-- System must recover automatically after outages
-
----
-
-### 4) Dead Letter Handling (DLQ)
-**Given** an email is permanently failed or exceeded max attempts  
-**When** retry decision is made  
-**Then**:
-- Mark email as:
-  - Status = Dead
-  - DeadReason
-  - LastError
-- Optionally publish to DLQ for alerting
-
-**Acceptance Criteria**
-- Dead emails must not retry automatically
-- Ops/Admin must be able to view and replay emails
-
----
-
-## Retry Policy
-- MaxAttempts configurable (default: 8)
-- Backoff example:
+## Retry Policy (Must Follow)
+- Default `MaxAttempts = 8` (configurable)
+- Default backoff schedule (configurable):
   - 1m → 5m → 15m → 1h → 3h → 6h → 12h → 24h
-- Permanent failures (no retry):
-  - invalid email
-  - hard bounce
-  - domain not found
-  - policy blocked
+- Only transient failures should enter retry flow
+- Permanent failures should be marked Dead (no retry)
 
 ---
 
 ## Non-Functional Requirements
 
-### Idempotency
-- MessageKey must be unique per logical email
-- DB or status rules must prevent duplicates
+### Reliability
+- Scheduler must continue working after restarts (DB is source of truth)
+- RabbitMQ publish failures must not lose retries:
+  - if publish fails, keep email in `Failed` with `NextAttemptAt` moved forward (or keep same)
 
-### Locking / Concurrency
-- DB lease (LockedUntil) must prevent double sends
-- Lease expiry allows safe recovery after crashes
+### Concurrency / Safety
+- Scheduler must support multiple instances without duplicate scheduling
+- Use DB claiming (lease) to prevent race conditions
 
 ### Observability
-- Log every attempt with:
+- Log every scheduling action:
   - EmailId
-  - Attempt number
-  - Error type
+  - AttemptCount
+  - NextAttemptAt
+  - Published/Skipped reason
 - Metrics:
-  - Pending
-  - Failed
-  - Dead
-  - Sent per hour/day
+  - due retries count
+  - re-queued count
+  - dead count (max attempts exceeded)
 
-### Scalability
-- Multiple consumers supported
-- Retry scheduler must scale using indexed queries
+### Performance
+- Required DB index:
+  - `(Status, NextAttemptAt)` to query due retries efficiently
 
 ---
 
 ## Definition of Done
-- API creates email + publishes message
-- Email.Dispatcher sends and updates DB
-- Retry Scheduler re-queues due retries
-- Dead emails are visible and replayable
-- No duplicates under concurrency
-- Logs and metrics available
+- RetryScheduler runs as .NET Worker Service continuously
+- It picks only due failed emails and re-publishes EmailId to RabbitMQ
+- Backoff and MaxAttempts are configurable
+- Rows are claimed safely to avoid duplicate scheduling
+- Emails exceeding retries are marked Dead
+- Logs and basic metrics exist
