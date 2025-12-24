@@ -1,4 +1,4 @@
-# User Story 2  
+# User Story 3  
 ## Provide Email.Dispatcher as an Installable Template
 
 **Title:** Install email dispatch pipeline via command or Visual Studio template
