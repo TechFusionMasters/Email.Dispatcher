@@ -7,3 +7,5 @@
 /EmailDispatcherAPI/obj
 /EmailWorker/bin
 /EmailWorker/obj
+/EmailDispatcherAPI/appsettings.json
+/EmailDispatcherAPI/appsettings.Development.json
