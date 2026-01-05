@@ -19,5 +19,12 @@ namespace EmailDispatcherAPI.Data
         public DbSet<EmailIdempotency> EmailIdempotency { get; set; }
         public DbSet<EmailStatus> EmailStatus { get; set; }
 
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<EmailIdempotency>()
+                .HasIndex(e => e.MessageKey)
+                .IsUnique();
+        }
+
     }
 }

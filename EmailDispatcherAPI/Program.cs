@@ -1,4 +1,7 @@
 
+using EmailDispatcherAPI.Contract;
+using EmailDispatcherAPI.Data;
+using EmailDispatcherAPI.Service;
 using Microsoft.OpenApi;
 
 namespace EmailDispatcherAPI
@@ -8,7 +11,8 @@ namespace EmailDispatcherAPI
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
-            builder.Services.AddDbContext<DbContextClass>();
+            builder.Services.AddDbContext<AppDBContext>();
+            builder.Services.AddScoped<IEmailService, EmailService>();
 
             builder.Services.AddEndpointsApiExplorer(); // Required for minimal APIs to discover endpoints
             builder.Services.AddSwaggerGen(c =>
@@ -40,19 +44,11 @@ namespace EmailDispatcherAPI
             "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
         };
 
-            app.MapGet("/weatherforecast", (HttpContext httpContext) =>
+            app.MapGet("/sendEmail", async (HttpContext httpContext, IEmailService emailService) =>
             {
-                var forecast = Enumerable.Range(1, 5).Select(index =>
-                    new WeatherForecast
-                    {
-                        Date = DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-                        TemperatureC = Random.Shared.Next(-20, 55),
-                        Summary = summaries[Random.Shared.Next(summaries.Length)]
-                    })
-                    .ToArray();
-                return forecast;
+                await emailService.SendEmail();
             })
-            .WithName("GetWeatherForecast");
+            .WithName("SendEmailNotification");
 
             app.Run();
         }
