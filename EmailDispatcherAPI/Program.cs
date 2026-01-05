@@ -1,6 +1,7 @@
 
 using EmailDispatcherAPI.Contract;
 using EmailDispatcherAPI.Data;
+using EmailDispatcherAPI.Exception;
 using EmailDispatcherAPI.Service;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.IdentityModel.Tokens;
@@ -14,6 +15,8 @@ namespace EmailDispatcherAPI
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
+            builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+            builder.Services.AddProblemDetails();
             builder.Services.AddDbContext<AppDBContext>();
             builder.Services.AddScoped<IEmailService, EmailService>();
 
@@ -36,8 +39,11 @@ namespace EmailDispatcherAPI
                 app.MapOpenApi();
                 app.UseSwagger();
                 app.UseSwaggerUI();
+                app.UseDeveloperExceptionPage();
             }
-
+            else {
+                app.UseExceptionHandler();
+            }
             app.UseHttpsRedirection();
 
             app.UseAuthorization();
