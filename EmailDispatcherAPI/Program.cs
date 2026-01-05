@@ -2,7 +2,10 @@
 using EmailDispatcherAPI.Contract;
 using EmailDispatcherAPI.Data;
 using EmailDispatcherAPI.Service;
+using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using Microsoft.OpenApi.Models;
 
 namespace EmailDispatcherAPI
 {
@@ -44,9 +47,13 @@ namespace EmailDispatcherAPI
             "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
         };
 
-            app.MapGet("/sendEmail", async (HttpContext httpContext, IEmailService emailService) =>
+            app.MapGet("/sendEmail", async (HttpContext httpContext, IEmailService emailService, string mailTo) =>
             {
+                if (mailTo.IsNullOrEmpty() || !await emailService.IsValidEmail(mailTo)) {
+                    return Results.BadRequest("Invalid Email");
+                }
                 await emailService.SendEmail();
+                return Results.Ok();
             })
             .WithName("SendEmailNotification");
 

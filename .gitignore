@@ -2,6 +2,8 @@
 # This .gitignore file was automatically created by Microsoft(R) Visual Studio.
 ################################################################################
 
-/EmailDispatcherAPI/bin/Debug/net10.0
+/EmailDispatcherAPI/bin
 /EmailDispatcherAPI/.vs/EmailDispatcherAPI
 /EmailDispatcherAPI/obj
+/EmailWorker/bin
+/EmailWorker/obj
