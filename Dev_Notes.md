@@ -88,3 +88,24 @@
       Publish ≠ delivered
 
       Publish ≠ persisted
+
+## Dependecy Issue for windows services
+
+While it seems intuitive to make everything a Singleton because a Windows Service runs continuously, you are running into a common dependency injection issue called a Scoped Leak.
+
+The Problem: Capturing a Scoped Service
+In Entity Framework Core, a DbContext is registered as Scoped by default. This means it is designed to be created and destroyed within a short lifetime (like a single HTTP request or a single loop of a worker).
+
+If your EmailRepository is a Singleton, it will be created once when the service starts. Because it depends on AppDBContext, it will "capture" that context and hold onto it forever.
+
+This leads to several issues:
+
+Memory Leaks: The DbContext keeps track of every entity it ever loads. Over days or weeks, your memory usage will climb indefinitely.
+
+Concurrency Crashes: A DbContext is not thread-safe. If your worker tries to do two things at once using the same singleton context, it will throw an exception.
+
+Stale Data: You won't see updates made to the database by other processes because the singleton context keeps its own internal cache.
+
+The Solution: Use a Service Scope
+The correct pattern for a continuous Worker (Windows Service) is to create a Scope manually inside your background loop. This ensures the DbContext is fresh for every "pulse" of work.
+
