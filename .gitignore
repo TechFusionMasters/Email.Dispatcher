@@ -9,3 +9,5 @@
 /EmailWorker/obj
 /EmailDispatcherAPI/appsettings.json
 /EmailDispatcherAPI/appsettings.Development.json
+/EmailWorker/appsettings.json
+/EmailWorker/appsettings.Development.json
