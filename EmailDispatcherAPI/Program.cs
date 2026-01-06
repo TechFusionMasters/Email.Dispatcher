@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Microsoft.OpenApi.Models;
+using RabbitMQ.Client;
 
 namespace EmailDispatcherAPI
 {
@@ -22,7 +23,16 @@ namespace EmailDispatcherAPI
             builder.Services.AddScoped<IEmailService, EmailService>();
             builder.Services.AddScoped<IEmailRepository, EmailRepository>();
 
-            builder.Services.AddEndpointsApiExplorer(); // Required for minimal APIs to discover endpoints
+            //Asynchronous Initialization via Hosted Service
+            builder.Services.AddSingleton<RabbitMqConnection>();
+            builder.Services.AddSingleton<IRabbitMqConnection>(
+                sp => sp.GetRequiredService<RabbitMqConnection>()
+            );
+
+            builder.Services.AddHostedService<RabbitMqHostedService>();
+
+
+            builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "My Minimal API", Version = "v1" });
