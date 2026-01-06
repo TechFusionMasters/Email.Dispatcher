@@ -35,7 +35,7 @@ namespace EmailDispatcherAPI
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(c =>
             {
-                c.SwaggerDoc("v1", new OpenApiInfo { Title = "My Minimal APII", Version = "v1" });
+                c.SwaggerDoc("v1", new OpenApiInfo { Title = "My Minimal API", Version = "v1" });
             });
             // Add services to the container.
             builder.Services.AddAuthorization();
