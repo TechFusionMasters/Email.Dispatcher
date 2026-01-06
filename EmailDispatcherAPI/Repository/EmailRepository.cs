@@ -14,7 +14,7 @@ namespace EmailDispatcherAPI.Repository
         }
 
         public async Task<EmailIdempotency?> GetEmailIdempotencyAsync(string idempotencyKey) {
-            return await this.dBContext.EmailIdempotency.FirstOrDefaultAsync(e => e.MessageKey == idempotencyKey);
+            return await this.dBContext.EmailIdempotency.AsNoTracking().FirstOrDefaultAsync(e => e.MessageKey == idempotencyKey);
         }
 
         public async Task<EmailLog> CreateEmailLog(EmailLog emailLog) {
@@ -28,5 +28,12 @@ namespace EmailDispatcherAPI.Repository
             await this.dBContext.SaveChangesAsync();
             return emailIdempotency;
         }
+
+        public async Task<bool> MarkEmailIdempotencyAsPublishedAsync(int id) {
+            var emailIdempotency = await this.dBContext.EmailIdempotency.FindAsync(id);
+            emailIdempotency.IsPublished = true;
+            return await this.dBContext.SaveChangesAsync() != default(int) ? true : false;
+        }
+
     }
 }

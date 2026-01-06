@@ -1,6 +1,7 @@
 ﻿using EmailDispatcherAPI.Contract;
 using EmailDispatcherAPI.Exception;
 using EmailDispatcherAPI.Modal;
+using Newtonsoft.Json;
 using RabbitMQ.Client;
 using System.ComponentModel.DataAnnotations;
 using System.Text;
@@ -9,12 +10,14 @@ namespace EmailDispatcherAPI.Service
 {
     public class EmailService : IEmailService
     {
-        private ConnectionFactory factory;
-        private IEmailRepository emailRepository;
+        private readonly IEmailRepository _emailRepository;
+        private readonly IRabbitMqConnection _rabbitMqConnection;
+        private const string _queueName = "EmailDispatcher.Queue";
+        private const string _routingKey = "Email.Send";
 
-        public EmailService(IEmailRepository emailRepository) { 
-            this.factory = new ConnectionFactory { HostName = "localhost" };
-            this.emailRepository = emailRepository;
+        public EmailService(IEmailRepository emailRepository, IRabbitMqConnection rabbitMqConnection) { 
+            this._emailRepository = emailRepository;
+            this._rabbitMqConnection = rabbitMqConnection;
         }
 
         public async Task<bool> IsValidEmail(string email)
@@ -26,7 +29,7 @@ namespace EmailDispatcherAPI.Service
 
         public async Task SendEmail(string mailTo,int entityId) {
             var emailIdempotency = await this.CreateEmailIdempotency(entityId);
-            await this.emailRepository.CreateEmailLog(new Modal.EmailLog
+            await this._emailRepository.CreateEmailLog(new Modal.EmailLog
             {
                 EmailStatusId = (int)Constant.Enum.EmailStatus.Pending,
                 EmailIdempotencyId = emailIdempotency.Id,
@@ -40,27 +43,36 @@ namespace EmailDispatcherAPI.Service
 
         private async Task<EmailIdempotency?> CreateEmailIdempotency(int entityKey) {
             var messageKey = $"SuccessMail:{entityKey}";
-            var existsEmailIdempotencyKey = await this.emailRepository.GetEmailIdempotencyAsync(messageKey);
+            var existsEmailIdempotencyKey = await this._emailRepository.GetEmailIdempotencyAsync(messageKey);
             if (existsEmailIdempotencyKey != null) {
                 throw new ResourceAlreadyExistsException("Email already in process");
             }
-            return await this.emailRepository.CreateEmailIdempotency(new EmailIdempotency {
+            return await this._emailRepository.CreateEmailIdempotency(new EmailIdempotency
+            {
                 MessageKey = messageKey,
                 EmailId = Guid.NewGuid(),
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.Now,
+                IsPublished = false
             });
         }
 
         private async Task InsertMessageToRabbitMQ(EmailIdempotency emailIdempotency) {
-            using (var connection = await factory.CreateConnectionAsync())
+            var rabbitMQPayload = new { 
+                MessageKey = emailIdempotency.MessageKey,
+                EmailId = emailIdempotency.EmailId
+            };
+            var jsonPayload = JsonConvert.SerializeObject(rabbitMQPayload);
+            using (var channel = await this._rabbitMqConnection.Connection.CreateChannelAsync())
             {
-                using var channel = await connection.CreateChannelAsync();
-                await channel.QueueDeclareAsync(queue: "hello", durable: false, exclusive: false, autoDelete: false,
-                    arguments: null);
-                const string message = "Hello World!";
-                var body = Encoding.UTF8.GetBytes(message);
-                await channel.BasicPublishAsync(exchange: string.Empty, routingKey: "hello", body: body);
+                var props = new BasicProperties
+                {
+                    Persistent = true
+                };
+                await channel.QueueDeclareAsync(queue: _queueName, durable: true, exclusive: false, autoDelete: false, arguments: null);
+                var body = Encoding.UTF8.GetBytes(jsonPayload);
+                await channel.BasicPublishAsync(exchange: string.Empty, routingKey: _routingKey, true, basicProperties: props, body: body);
             }
+            await this._emailRepository.MarkEmailIdempotencyAsPublishedAsync(emailIdempotency.Id);
         }
     }
 }
