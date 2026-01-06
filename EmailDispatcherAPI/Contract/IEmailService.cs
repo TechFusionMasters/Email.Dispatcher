@@ -2,6 +2,7 @@
 {
     public interface IEmailService
     {
-         Task<string> SendEmail();
+        Task<bool> IsValidEmail(string email);
+        Task SendEmail(string mailTo,int entityId);
     }
 }

@@ -1,8 +1,13 @@
 
 using EmailDispatcherAPI.Contract;
 using EmailDispatcherAPI.Data;
+using EmailDispatcherAPI.Exception;
+using EmailDispatcherAPI.Repository;
 using EmailDispatcherAPI.Service;
+using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using Microsoft.OpenApi.Models;
 
 namespace EmailDispatcherAPI
 {
@@ -11,8 +16,11 @@ namespace EmailDispatcherAPI
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
+            builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+            builder.Services.AddProblemDetails();
             builder.Services.AddDbContext<AppDBContext>();
             builder.Services.AddScoped<IEmailService, EmailService>();
+            builder.Services.AddScoped<IEmailRepository, EmailRepository>();
 
             builder.Services.AddEndpointsApiExplorer(); // Required for minimal APIs to discover endpoints
             builder.Services.AddSwaggerGen(c =>
@@ -33,8 +41,11 @@ namespace EmailDispatcherAPI
                 app.MapOpenApi();
                 app.UseSwagger();
                 app.UseSwaggerUI();
+                app.UseDeveloperExceptionPage();
             }
-
+            else {
+                app.UseExceptionHandler();
+            }
             app.UseHttpsRedirection();
 
             app.UseAuthorization();
@@ -44,9 +55,16 @@ namespace EmailDispatcherAPI
             "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
         };
 
-            app.MapGet("/sendEmail", async (HttpContext httpContext, IEmailService emailService) =>
+            app.MapPost("/sendEmail", async (HttpContext httpContext, IEmailService emailService,string mailTo,int entityId) =>
             {
-                await emailService.SendEmail();
+                if (mailTo.IsNullOrEmpty() || !await emailService.IsValidEmail(mailTo)) {
+                    throw new ArgumentException("Invalid Email ID");
+                }
+                if (entityId == default(int) || entityId < 1) {
+                    throw new ArgumentException("Invalid Entity Id");
+                }
+                await emailService.SendEmail(mailTo, entityId);
+                return Results.Ok("Mail Scheduled SuccessFully");
             })
             .WithName("SendEmailNotification");
 
