@@ -4,6 +4,7 @@ namespace EmailWorker.Contract
 {
     public interface IEmailRepository
     {
-        Task<EmailIdempotency?> GetEmailIdempotencyAsync(string idempotencyKey);
+        Task<EmailIdempotency> GetEmailIdempotencyAsync(Guid emailId);
+        Task<bool> LockEmailSendIdempotency(EmailIdempotency emailIdempotency);
     }
 }

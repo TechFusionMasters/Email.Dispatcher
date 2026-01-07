@@ -12,8 +12,7 @@ namespace EmailDispatcherAPI.Service
     {
         private readonly IEmailRepository _emailRepository;
         private readonly IRabbitMqConnection _rabbitMqConnection;
-        private const string _queueName = "EmailDispatcher.Queue";
-        private const string _routingKey = "Email.Send";
+        private const string _queueName = "email.dispatcher.queue";
 
         public EmailService(IEmailRepository emailRepository, IRabbitMqConnection rabbitMqConnection) { 
             this._emailRepository = emailRepository;
@@ -70,7 +69,7 @@ namespace EmailDispatcherAPI.Service
                 };
                 await channel.QueueDeclareAsync(queue: _queueName, durable: true, exclusive: false, autoDelete: false, arguments: null);
                 var body = Encoding.UTF8.GetBytes(jsonPayload);
-                await channel.BasicPublishAsync(exchange: string.Empty, routingKey: _routingKey, true, basicProperties: props, body: body);
+                await channel.BasicPublishAsync(exchange: string.Empty, routingKey: _queueName, true, basicProperties: props, body: body);
             }
             await this._emailRepository.MarkEmailIdempotencyAsPublishedAsync(emailIdempotency.Id);
         }
