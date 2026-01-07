@@ -31,12 +31,10 @@ namespace EmailWorker.Service
         }
 
         public async Task SendEmail(RabitMQDto message) {
-            await this.SendEmailAsync("","Helloe Subject", "Hello Body");
-            return;
             var emailIdempotency = await _emailRepository.GetEmailIdempotencyAsync(message.EmailId);
             if (emailIdempotency == null || await this.CheckIsEmialIdempotencyIsSendable(emailIdempotency)) return;
             await _emailRepository.LockEmailSendIdempotency(emailIdempotency);
-            
+            await this.SendEmailAsync(emailIdempotency);
             return;
         }
 
@@ -48,15 +46,18 @@ namespace EmailWorker.Service
             else return false;
         }
 
-        private async Task SendEmailAsync(string recipientEmail, string subject, string body)
+        private async Task SendEmailAsync(EmailIdempotency emailIdempotency)
         {
             var message = new MimeMessage();
             message.From.Add(new MailboxAddress(_mailConfig.Name, _mailConfig.FromAddress));
-            message.To.Add(new MailboxAddress("", "arulkailasam01@gmail.com"));
-            message.Subject = subject;
+            //Empty string may be receiver name
+            message.To.Add(new MailboxAddress(string.Empty, emailIdempotency.EmailLog.ToAddress));
+
+            message.Subject = emailIdempotency.EmailLog.Subject;
+            var body = emailIdempotency.EmailLog.Body;
             var bodyBuilder = new BodyBuilder
             {
-                HtmlBody = $"<h1>{subject}</h1><p>{body}</p>",
+                HtmlBody = $"<h1>{body}</h1>",
                 TextBody = body
             };
             message.Body = bodyBuilder.ToMessageBody();
@@ -68,17 +69,31 @@ namespace EmailWorker.Service
                     await client.ConnectAsync(_mailConfig.MailDomain, 587, SecureSocketOptions.StartTls);
                     await client.AuthenticateAsync(_mailConfig.FromAddress, _mailConfig.MailPassword);
                     await client.SendAsync(message);
-                    Console.WriteLine("Email sent successfully!");
+                    DateTime now = DateTime.Now;
+                    await _emailRepository.MarkEmailSuccess(emailIdempotency.EmailId, now);
+                    await AddActionLog(emailIdempotency.EmailId, "Mail delivered successfully", now);
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error sending email: {ex.Message}");
+                    await _emailRepository.MarkEmailFail(emailIdempotency.EmailId, ex.Message);
+                    await AddActionLog(emailIdempotency.EmailId, $"Mail delivery failed at attempt of {emailIdempotency.EmailLog.AttemptCount}. Error Message was : {ex.Message}", DateTime.Now);
                 }
                 finally
                 {
                     await client.DisconnectAsync(true);
                 }
             }
+        }
+
+        private async Task<bool> AddActionLog(Guid emailId, string message ,DateTime? actionAt) {
+            var emailAction = new EmailActionLog
+            {
+                EmailId = emailId,
+                Message = message,
+                CreatedAt = actionAt ?? DateTime.Now
+            };
+            await _emailRepository.InsertEmailActionLog(emailAction);
+            return true;
         }
     }
 }

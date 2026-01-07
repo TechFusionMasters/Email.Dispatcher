@@ -17,5 +17,6 @@ namespace EmailWorker.Data
         public DbSet<EmailLog> EmailLog { get; set; }
         public DbSet<EmailIdempotency> EmailIdempotency { get; set; }
         public DbSet<EmailStatus> EmailStatus { get; set; }
+        public DbSet<EmailActionLog> EmailActionLog { get; set; }
     }
 }

@@ -11,3 +11,5 @@
 /EmailDispatcherAPI/appsettings.Development.json
 /EmailWorker/appsettings.json
 /EmailWorker/appsettings.Development.json
+/EmailWorker/appsettings.json
+/EmailWorker/appsettings.Development.json

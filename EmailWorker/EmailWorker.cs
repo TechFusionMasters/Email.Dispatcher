@@ -55,8 +55,8 @@ namespace EmailWorker
                 var message = JsonConvert.DeserializeObject<RabitMQDto>(messageJson);
                 if (message == null)
                     return;
-                await this.SendEmail(cancellationToken, message);
-                await _channel.BasicAckAsync(ea.DeliveryTag, false);
+               await this.SendEmail(cancellationToken, message);
+               await _channel.BasicAckAsync(ea.DeliveryTag, false);
                 return;
             };
 
