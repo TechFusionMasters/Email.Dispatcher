@@ -11,5 +11,7 @@ namespace EmailDispatcherAPI.Modal
         public bool IsPublished { get; set; }
         public DateTime? CompletedAt { get; set; }
         public DateTime CreatedAt { get; set; }
+        public EmailLog EmailLog { get; set; }
+
     }
 }

@@ -1,7 +1,9 @@
 using EmailWorker.Contract;
 using EmailWorker.Data;
+using EmailWorker.Dto;
 using EmailWorker.Repository;
 using EmailWorker.Service;
+using Microsoft.Extensions.Configuration;
 
 namespace EmailWorker
 {
@@ -14,10 +16,9 @@ namespace EmailWorker
             builder.Services.AddDbContext<AppDBContext>();
             builder.Services.AddScoped<IEmailRepository, EmailRepository>();
             builder.Services.AddScoped<IEmailService, EmailService>();
-            //Asynchronous Initialization via Hosted Service
-            builder.Services.AddSingleton<IRabbitMqConnection, RabbitMqConnection>();
-            builder.Services.AddHostedService<RabbitMqHostedService>();
             builder.Services.AddHostedService<EmailWorker>();
+            builder.Services.Configure<MailConfig>(builder.Configuration.GetSection("MailConfig"));
+
 
             var host = builder.Build();
             host.Run();

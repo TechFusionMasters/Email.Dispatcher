@@ -1,10 +1,10 @@
-﻿using RabbitMQ.Client;
+﻿using EmailWorker.Dto;
+using RabbitMQ.Client;
 
 namespace EmailWorker.Contract
 {
     public interface IEmailService
     {
-        IConnection Connection { get; }
-        Task SendEmail();
+        Task SendEmail(RabitMQDto message);
     }
 }

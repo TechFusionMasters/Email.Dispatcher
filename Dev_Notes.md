@@ -109,3 +109,12 @@ Stale Data: You won't see updates made to the database by other processes becaus
 The Solution: Use a Service Scope
 The correct pattern for a continuous Worker (Windows Service) is to create a Scope manually inside your background loop. This ensures the DbContext is fresh for every "pulse" of work.
 
+
+## C# Rules to remeber 
+- All interface members are implicitly public This is a hard C# rule.
+- A public Classes cannot expose a less-accessible type like internal classes. So when you inject internal into public services means it show error.
+
+
+## RabbitMq
+
+When Send message Quename and Routing key should be same
