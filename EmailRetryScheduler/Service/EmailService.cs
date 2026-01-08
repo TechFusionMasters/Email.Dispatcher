@@ -1,13 +1,13 @@
-﻿using EmailWorker.Constant;
-using EmailWorker.Contract;
-using EmailWorker.Dto;
-using EmailWorker.Modal;
+﻿using EmailRetryScheduler.Constant;
+using EmailRetryScheduler.Contract;
+using EmailRetryScheduler.Dto;
+using EmailRetryScheduler.Modal;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using Microsoft.Extensions.Options;
 using MimeKit;
 
-namespace EmailWorker.Service
+namespace EmailRetryScheduler.Service
 {
     public class EmailService : IEmailService
     {

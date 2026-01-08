@@ -1,4 +1,5 @@
-﻿using EmailDispatcherAPI.Contract;
+﻿using EmailDispatcherAPI.Constant;
+using EmailDispatcherAPI.Contract;
 using EmailDispatcherAPI.Exception;
 using EmailDispatcherAPI.Modal;
 using Newtonsoft.Json;
@@ -12,7 +13,6 @@ namespace EmailDispatcherAPI.Service
     {
         private readonly IEmailRepository _emailRepository;
         private readonly IRabbitMqConnection _rabbitMqConnection;
-        private const string _queueName = "email.dispatcher.queue";
 
         public EmailService(IEmailRepository emailRepository, IRabbitMqConnection rabbitMqConnection) { 
             this._emailRepository = emailRepository;
@@ -67,9 +67,9 @@ namespace EmailDispatcherAPI.Service
                 {
                     Persistent = true
                 };
-                await channel.QueueDeclareAsync(queue: _queueName, durable: true, exclusive: false, autoDelete: false, arguments: null);
+                await channel.QueueDeclareAsync(queue: AppConstant.QueueName, durable: true, exclusive: false, autoDelete: false, arguments: null);
                 var body = Encoding.UTF8.GetBytes(jsonPayload);
-                await channel.BasicPublishAsync(exchange: string.Empty, routingKey: _queueName, true, basicProperties: props, body: body);
+                await channel.BasicPublishAsync(exchange: string.Empty, routingKey: AppConstant.QueueName, true, basicProperties: props, body: body);
             }
             await this._emailRepository.MarkEmailIdempotencyAsPublishedAsync(emailIdempotency.Id);
         }

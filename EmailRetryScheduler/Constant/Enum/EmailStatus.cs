@@ -1,4 +1,4 @@
-﻿namespace EmailDispatcherAPI.Constant.Enum
+﻿namespace EmailRetryScheduler.Constant.Enum
 {
     public enum EmailStatus
     {
