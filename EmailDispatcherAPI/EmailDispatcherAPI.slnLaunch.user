@@ -9,6 +9,10 @@
       {
         "Path": "..\\EmailWorker\\EmailWorker.csproj",
         "Action": "Start"
+      },
+      {
+        "Path": "..\\EmailRetryScheduler\\EmailRetryScheduler.csproj",
+        "Action": "Start"
       }
     ]
   }

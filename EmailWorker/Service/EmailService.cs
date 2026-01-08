@@ -1,10 +1,10 @@
-﻿using EmailWorker.Contract;
+﻿using EmailWorker.Constant;
+using EmailWorker.Contract;
 using EmailWorker.Dto;
 using EmailWorker.Modal;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
 using MimeKit;
 
 namespace EmailWorker.Service
@@ -14,9 +14,11 @@ namespace EmailWorker.Service
         private readonly IEmailRepository _emailRepository;
         protected readonly IConfiguration configuration;
         private readonly MailConfig _mailConfig;
+        private readonly IRabbitMQService _rabbitMQService;
 
-        public EmailService(IEmailRepository emailRepository, IOptions<MailConfig> mailConfig)
+        public EmailService(IEmailRepository emailRepository, IOptions<MailConfig> mailConfig, IRabbitMQService rabbitMQService)
         {
+            _rabbitMQService = rabbitMQService;
             _emailRepository = emailRepository;
             _mailConfig = mailConfig?.Value;
 
@@ -31,32 +33,34 @@ namespace EmailWorker.Service
         }
 
         public async Task SendEmail(RabitMQDto message) {
-            await this.SendEmailAsync("","Helloe Subject", "Hello Body");
-            return;
             var emailIdempotency = await _emailRepository.GetEmailIdempotencyAsync(message.EmailId);
             if (emailIdempotency == null || await this.CheckIsEmialIdempotencyIsSendable(emailIdempotency)) return;
             await _emailRepository.LockEmailSendIdempotency(emailIdempotency);
-            
+            await this.SendEmailAsync(emailIdempotency);
             return;
         }
 
         private async Task<bool> CheckIsEmialIdempotencyIsSendable(EmailIdempotency em_Id) {
-            if ((em_Id.IsPublished && em_Id.CompletedAt == null) && (em_Id.EmailLog.SentAt == null && em_Id.EmailLog.EmailStatusId == (int)Constant.Enum.EmailStatus.Pending && em_Id.EmailLog.LockedUntil < DateTime.Now))
+            var now = DateTime.Now;
+            if ((em_Id.IsPublished && em_Id.CompletedAt == null) && (em_Id.EmailLog.SentAt == null && em_Id.EmailLog.EmailStatusId == (int)Constant.Enum.EmailStatus.Pending && (em_Id.EmailLog.LockedUntil is null || em_Id.EmailLog.LockedUntil < now)) && (em_Id.EmailLog.NextAttemptAt is null || em_Id.EmailLog.NextAttemptAt < now))
             {
                 return true;
             }
             else return false;
         }
 
-        private async Task SendEmailAsync(string recipientEmail, string subject, string body)
+        private async Task SendEmailAsync(EmailIdempotency emailIdempotency)
         {
             var message = new MimeMessage();
             message.From.Add(new MailboxAddress(_mailConfig.Name, _mailConfig.FromAddress));
-            message.To.Add(new MailboxAddress("", "arulkailasam01@gmail.com"));
-            message.Subject = subject;
+            //Empty string may be receiver name
+            message.To.Add(new MailboxAddress(string.Empty, emailIdempotency.EmailLog.ToAddress));
+
+            message.Subject = emailIdempotency.EmailLog.Subject;
+            var body = emailIdempotency.EmailLog.Body;
             var bodyBuilder = new BodyBuilder
             {
-                HtmlBody = $"<h1>{subject}</h1><p>{body}</p>",
+                HtmlBody = $"<h1>{body}</h1>",
                 TextBody = body
             };
             message.Body = bodyBuilder.ToMessageBody();
@@ -68,17 +72,40 @@ namespace EmailWorker.Service
                     await client.ConnectAsync(_mailConfig.MailDomain, 587, SecureSocketOptions.StartTls);
                     await client.AuthenticateAsync(_mailConfig.FromAddress, _mailConfig.MailPassword);
                     await client.SendAsync(message);
-                    Console.WriteLine("Email sent successfully!");
+                    DateTime now = DateTime.Now;
+                    await _emailRepository.MarkEmailSuccess(emailIdempotency.EmailId, now);
+                    await AddActionLog(emailIdempotency.EmailId, "Mail delivered successfully", now);
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error sending email: {ex.Message}");
+                    await _emailRepository.MarkEmailFail(emailIdempotency.EmailId, ex.Message);
+                    await AddActionLog(emailIdempotency.EmailId, $"Mail delivery failed at attempt of {emailIdempotency.EmailLog.AttemptCount}. And Marked as not published. Error Message was : {ex.Message}", DateTime.Now);
+                    try
+                    {
+                        await _rabbitMQService.InsertMessageToRabbitMQ(emailIdempotency, AppConstant.DLQQueueName);
+                        await _emailRepository.MarkMailAsPublished(emailIdempotency);
+                        await AddActionLog(emailIdempotency.EmailId, $"Successfully failed mail message inserted to DLQ for retry", DateTime.Now);
+                    }
+                    catch (Exception e) {
+                        await AddActionLog(emailIdempotency.EmailId, $"Email Worker Failed to insert message to DLQ afterfailed to send a mail. Error Message was : {e.Message}", DateTime.Now);
+                    }
                 }
                 finally
                 {
                     await client.DisconnectAsync(true);
                 }
             }
+        }
+
+        private async Task<bool> AddActionLog(Guid emailId, string message ,DateTime? actionAt) {
+            var emailAction = new EmailActionLog
+            {
+                EmailId = emailId,
+                Message = message,
+                CreatedAt = actionAt ?? DateTime.Now
+            };
+            await _emailRepository.InsertEmailActionLog(emailAction);
+            return true;
         }
     }
 }

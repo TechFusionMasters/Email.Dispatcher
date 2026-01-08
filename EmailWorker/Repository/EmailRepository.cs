@@ -1,5 +1,4 @@
 ﻿using EmailWorker.Constant;
-using EmailWorker.Constant.Enum;
 using EmailWorker.Contract;
 using EmailWorker.Data;
 using EmailWorker.Modal;
@@ -31,9 +30,55 @@ namespace EmailWorker.Repository
             if (targetEmailIdempotency == null) return false;
             targetEmailIdempotency.EmailLog.EmailStatusId = (int)Constant.Enum.EmailStatus.Scheduled;
             targetEmailIdempotency.EmailLog.LockedUntil = DateTime.Now.AddSeconds(AppConstant.LeaseLockTime);
+            targetEmailIdempotency.EmailLog.AttemptCount += targetEmailIdempotency.EmailLog.AttemptCount;
             await _dBContext.SaveChangesAsync();
             return true;
         }
 
+        public async Task<bool> MarkEmailSuccess(Guid emailId, DateTime actionAt) {
+            var targetEmailIdempotency = await _dBContext.EmailIdempotency
+                .Include(e => e.EmailLog)
+                .Where(e => e.EmailId == emailId).FirstOrDefaultAsync();
+            if (targetEmailIdempotency == null) return false;
+            targetEmailIdempotency.EmailLog.EmailStatusId = (int)Constant.Enum.EmailStatus.Sent;
+            targetEmailIdempotency.EmailLog.SentAt = actionAt;
+            targetEmailIdempotency.EmailLog.LockedUntil = null;
+            targetEmailIdempotency.EmailLog.LastError = null;
+            targetEmailIdempotency.CompletedAt = actionAt;
+            targetEmailIdempotency.EmailLog.NextAttemptAt = null;
+            await _dBContext.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> MarkEmailFail(Guid emailId, string lastError)
+        {
+            var targetEmailIdempotency = await _dBContext.EmailIdempotency
+                .Include(e => e.EmailLog)
+                .Where(e => e.EmailId == emailId).FirstOrDefaultAsync();
+            if (targetEmailIdempotency == null) return false;
+            targetEmailIdempotency.EmailLog.EmailStatusId = (int)Constant.Enum.EmailStatus.Bounced;
+            targetEmailIdempotency.EmailLog.LockedUntil = null;
+            targetEmailIdempotency.EmailLog.LastError = lastError;
+            targetEmailIdempotency.EmailLog.NextAttemptAt = null;
+            targetEmailIdempotency.IsPublished = false;
+            await _dBContext.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> MarkMailAsPublished(EmailIdempotency emailIdempotency)
+        {
+            var targetEmailIdempotency = await _dBContext.EmailIdempotency
+                .Include(e => e.EmailLog)
+                .Where(e => e.Id == emailIdempotency.Id).FirstOrDefaultAsync();
+            if (targetEmailIdempotency == null) return false;
+            targetEmailIdempotency.IsPublished = true;
+            await _dBContext.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task InsertEmailActionLog(EmailActionLog actionLog) {
+            await _dBContext.EmailActionLog.AddAsync(actionLog);
+            await _dBContext.SaveChangesAsync();
+        }
     }
 }

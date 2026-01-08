@@ -11,3 +11,12 @@
 /EmailDispatcherAPI/appsettings.Development.json
 /EmailWorker/appsettings.json
 /EmailWorker/appsettings.Development.json
+/EmailWorker/appsettings.json
+/EmailWorker/appsettings.Development.json
+/EmailRetryScheduler/appsettings.json
+/EmailRetryScheduler/appsettings.Development.json
+/EmailRetryScheduler/bin
+/EmailRetryScheduler/obj
+/EmailRetryScheduler/obj
+/EmailRetryScheduler/obj/Debug
+/EmailRetryScheduler/obj/Debug/net9.0

@@ -1,7 +1,7 @@
-﻿using EmailWorker.Modal;
+﻿using EmailRetryScheduler.Modal;
 using Microsoft.EntityFrameworkCore;
 
-namespace EmailWorker.Data
+namespace EmailRetryScheduler.Data
 {
     public class AppDBContext : DbContext
     {

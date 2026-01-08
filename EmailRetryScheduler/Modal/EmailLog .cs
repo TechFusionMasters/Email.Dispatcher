@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace EmailWorker.Modal
+namespace EmailRetryScheduler.Modal
 {
     public class EmailLog
     {

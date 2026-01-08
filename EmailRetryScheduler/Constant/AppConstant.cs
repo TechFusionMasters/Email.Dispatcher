@@ -1,4 +1,4 @@
-﻿namespace EmailWorker.Constant
+﻿namespace EmailRetryScheduler.Constant
 {
     internal class AppConstant
     {
