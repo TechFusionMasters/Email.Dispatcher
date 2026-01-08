@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace EmailDispatcherAPI.Migrations
 {
     [DbContext(typeof(AppDBContext))]
-    [Migration("20260107192823_Added Action log")]
-    partial class AddedActionlog
+    [Migration("20260108103440_Added Next Attempt")]
+    partial class AddedNextAttempt
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -108,6 +108,9 @@ namespace EmailDispatcherAPI.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("LockedUntil")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("NextAttemptAt")
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("SentAt")

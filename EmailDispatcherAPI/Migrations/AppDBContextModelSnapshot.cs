@@ -107,6 +107,9 @@ namespace EmailDispatcherAPI.Migrations
                     b.Property<DateTime?>("LockedUntil")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("NextAttemptAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime?>("SentAt")
                         .HasColumnType("datetime2");
 

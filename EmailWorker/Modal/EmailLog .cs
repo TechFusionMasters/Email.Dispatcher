@@ -13,6 +13,7 @@ namespace EmailWorker.Modal
         public DateTime CreatedAt { get; set; }
         public DateTime? SentAt { get; set; }
         public DateTime? LockedUntil { get; set; }
+        public DateTime? NextAttemptAt { get; set; }
         public string? LastError { get; set; }
         public int EmailStatusId { get; set; }
         public EmailStatus? EmailStatus { get; set; }

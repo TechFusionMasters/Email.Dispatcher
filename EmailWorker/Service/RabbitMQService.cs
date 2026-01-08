@@ -80,7 +80,6 @@ namespace EmailWorker
                 var body = Encoding.UTF8.GetBytes(jsonPayload);
                 await channel.BasicPublishAsync(exchange: string.Empty, routingKey: queueName, true, basicProperties: props, body: body);
             }
-            await this._emailRepository.MarkEmailIdempotencyAsPublishedAsync(emailIdempotency.Id);
         }
 
         private async Task SendEmail(CancellationToken stoppingToken, RabitMQDto message)

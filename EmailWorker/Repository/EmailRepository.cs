@@ -45,6 +45,7 @@ namespace EmailWorker.Repository
             targetEmailIdempotency.EmailLog.LockedUntil = null;
             targetEmailIdempotency.EmailLog.LastError = null;
             targetEmailIdempotency.CompletedAt = actionAt;
+            targetEmailIdempotency.EmailLog.NextAttemptAt = null;
             await _dBContext.SaveChangesAsync();
             return true;
         }
@@ -58,6 +59,19 @@ namespace EmailWorker.Repository
             targetEmailIdempotency.EmailLog.EmailStatusId = (int)Constant.Enum.EmailStatus.Bounced;
             targetEmailIdempotency.EmailLog.LockedUntil = null;
             targetEmailIdempotency.EmailLog.LastError = lastError;
+            targetEmailIdempotency.EmailLog.NextAttemptAt = null;
+            targetEmailIdempotency.IsPublished = false;
+            await _dBContext.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> MarkMailAsPublished(EmailIdempotency emailIdempotency)
+        {
+            var targetEmailIdempotency = await _dBContext.EmailIdempotency
+                .Include(e => e.EmailLog)
+                .Where(e => e.Id == emailIdempotency.Id).FirstOrDefaultAsync();
+            if (targetEmailIdempotency == null) return false;
+            targetEmailIdempotency.IsPublished = true;
             await _dBContext.SaveChangesAsync();
             return true;
         }

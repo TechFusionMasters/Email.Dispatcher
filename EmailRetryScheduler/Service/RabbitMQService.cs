@@ -36,7 +36,7 @@ namespace EmailRetryScheduler
             _channel = await _connection.CreateChannelAsync();
 
             await _channel.QueueDeclareAsync(
-                queue: AppConstant.QueueName,
+                queue: AppConstant.DLQQueueName,
                 durable: true,
                 exclusive: false,
                 autoDelete: false,
@@ -51,7 +51,7 @@ namespace EmailRetryScheduler
                 var message = JsonConvert.DeserializeObject<RabitMQDto>(messageJson);
                 if (message == null || (message?.MessageKey.IsNullOrEmpty() ?? true) || (Guid.TryParse(message?.EmailId.ToString(),out _)))
                     return;
-                await this.SendEmail(cancellationToken, message);
+                await MarkMailForRetry(cancellationToken, message);
                 await _channel.BasicAckAsync(ea.DeliveryTag, false);
                 return;
             };
@@ -80,16 +80,15 @@ namespace EmailRetryScheduler
                 var body = Encoding.UTF8.GetBytes(jsonPayload);
                 await channel.BasicPublishAsync(exchange: string.Empty, routingKey: queueName, true, basicProperties: props, body: body);
             }
-            await this._emailRepository.MarkEmailIdempotencyAsPublishedAsync(emailIdempotency.Id);
         }
 
-        private async Task SendEmail(CancellationToken stoppingToken, RabitMQDto message)
+        private async Task MarkMailForRetry(CancellationToken stoppingToken, RabitMQDto message)
         {
             if (stoppingToken.IsCancellationRequested) return;
             using (IServiceScope scope = _serviceScopeFactory.CreateAsyncScope())
             {
                 var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
-                await emailService.SendEmail(message);
+                await emailService.MarkMailForRetry(message);
             }
         }
 

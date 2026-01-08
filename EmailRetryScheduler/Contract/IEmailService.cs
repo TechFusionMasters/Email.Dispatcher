@@ -1,10 +1,11 @@
-﻿using EmailRetryScheduler.Dto;
-using RabbitMQ.Client;
+﻿
+using EmailRetryScheduler.Dto;
 
 namespace EmailRetryScheduler.Contract
 {
     public interface IEmailService
     {
-        Task SendEmail(RabitMQDto message);
+        Task<bool> MarkMailForRetry(RabitMQDto rabitMQDto);
+        Task<bool> RescheduleFailedMailsToSend();
     }
 }

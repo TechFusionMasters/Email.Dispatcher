@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EmailDispatcherAPI", "Email
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EmailWorker", "..\EmailWorker\EmailWorker.csproj", "{F70C08CC-2CDD-4EC4-BDDA-C99C994D2D40}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EmailRetryScheduler", "..\EmailRetryScheduler\EmailRetryScheduler.csproj", "{C666BCBF-D1C1-470A-BE3F-EA19BAEC5370}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{F70C08CC-2CDD-4EC4-BDDA-C99C994D2D40}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F70C08CC-2CDD-4EC4-BDDA-C99C994D2D40}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F70C08CC-2CDD-4EC4-BDDA-C99C994D2D40}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C666BCBF-D1C1-470A-BE3F-EA19BAEC5370}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C666BCBF-D1C1-470A-BE3F-EA19BAEC5370}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C666BCBF-D1C1-470A-BE3F-EA19BAEC5370}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C666BCBF-D1C1-470A-BE3F-EA19BAEC5370}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

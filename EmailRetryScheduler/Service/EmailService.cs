@@ -2,10 +2,7 @@
 using EmailRetryScheduler.Contract;
 using EmailRetryScheduler.Dto;
 using EmailRetryScheduler.Modal;
-using MailKit.Net.Smtp;
-using MailKit.Security;
 using Microsoft.Extensions.Options;
-using MimeKit;
 
 namespace EmailRetryScheduler.Service
 {
@@ -13,79 +10,55 @@ namespace EmailRetryScheduler.Service
     {
         private readonly IEmailRepository _emailRepository;
         protected readonly IConfiguration configuration;
-        private readonly MailConfig _mailConfig;
         private readonly IRabbitMQService _rabbitMQService;
+        private readonly RetryPolicyOptions _settings;
 
-        public EmailService(IEmailRepository emailRepository, IOptions<MailConfig> mailConfig, IRabbitMQService rabbitMQService)
+        public EmailService(IOptions<RetryPolicyOptions> settingsAccessor, IEmailRepository emailRepository, IRabbitMQService rabbitMQService)
         {
+            _settings = settingsAccessor.Value;
             _rabbitMQService = rabbitMQService;
             _emailRepository = emailRepository;
-            _mailConfig = mailConfig?.Value;
-
-            if (string.IsNullOrWhiteSpace(_mailConfig.FromAddress) ||
-                string.IsNullOrWhiteSpace(_mailConfig.MailDomain) ||
-                string.IsNullOrWhiteSpace(_mailConfig.MailPassword) ||
-                string.IsNullOrWhiteSpace(_mailConfig.Name))
-            {
-                throw new InvalidOperationException(
-                    "MailConfig is missing required values.");
-            }
         }
 
-        public async Task SendEmail(RabitMQDto message) {
+        public async Task<bool> MarkMailForRetry(RabitMQDto message) {
             var emailIdempotency = await _emailRepository.GetEmailIdempotencyAsync(message.EmailId);
-            if (emailIdempotency == null || await this.CheckIsEmialIdempotencyIsSendable(emailIdempotency)) return;
-            await _emailRepository.LockEmailSendIdempotency(emailIdempotency);
-            await this.SendEmailAsync(emailIdempotency);
-            return;
-        }
-
-        private async Task<bool> CheckIsEmialIdempotencyIsSendable(EmailIdempotency em_Id) {
-            if ((em_Id.IsPublished && em_Id.CompletedAt == null) && (em_Id.EmailLog.SentAt == null && em_Id.EmailLog.EmailStatusId == (int)Constant.Enum.EmailStatus.Pending && em_Id.EmailLog.LockedUntil < DateTime.Now))
-            {
+            if (emailIdempotency == null) return false;
+            if (emailIdempotency.EmailLog.AttemptCount >= _settings.MaxAttempts) { 
+                await _emailRepository.MarkEmailAsDead(emailIdempotency.EmailId);
+                await AddActionLog(emailIdempotency.EmailId, "Due To Maximum Attempt reach this mail is marked as Dead", DateTime.Now);
                 return true;
             }
-            else return false;
+            var rescheduleMinutes = GetRescheduleMinutes(emailIdempotency.EmailLog.AttemptCount);
+            var now = DateTime.Now.AddMinutes(rescheduleMinutes);
+            await _emailRepository.MarkMailForRetry(emailIdempotency.EmailId, now);
+            await AddActionLog(emailIdempotency.EmailId, $"Mail marked for retry and will run at {now:O}", DateTime.Now);
+            return true;
         }
 
-        private async Task SendEmailAsync(EmailIdempotency emailIdempotency)
-        {
-            var message = new MimeMessage();
-            message.From.Add(new MailboxAddress(_mailConfig.Name, _mailConfig.FromAddress));
-            //Empty string may be receiver name
-            message.To.Add(new MailboxAddress(string.Empty, emailIdempotency.EmailLog.ToAddress));
-
-            message.Subject = emailIdempotency.EmailLog.Subject;
-            var body = emailIdempotency.EmailLog.Body;
-            var bodyBuilder = new BodyBuilder
-            {
-                HtmlBody = $"<h1>{body}</h1>",
-                TextBody = body
-            };
-            message.Body = bodyBuilder.ToMessageBody();
-
-            using (var client = new SmtpClient())
-            {
+        public async Task<bool> RescheduleFailedMailsToSend() {
+            var pendingMailToPublish = await _emailRepository.GetRetryMailsForSend();
+            foreach (var item in pendingMailToPublish)
+            { 
                 try
                 {
-                    await client.ConnectAsync(_mailConfig.MailDomain, 587, SecureSocketOptions.StartTls);
-                    await client.AuthenticateAsync(_mailConfig.FromAddress, _mailConfig.MailPassword);
-                    await client.SendAsync(message);
-                    DateTime now = DateTime.Now;
-                    await _emailRepository.MarkEmailSuccess(emailIdempotency.EmailId, now);
-                    await AddActionLog(emailIdempotency.EmailId, "Mail delivered successfully", now);
+                   await _rabbitMQService.InsertMessageToRabbitMQ(item, AppConstant.QueueName);
+                   await _emailRepository.MarkMailAsPublished(item.EmailId);
+                   await AddActionLog(item.EmailId, $"By Retry scheduler successfully failed mail Message inserted to primary queue for send a retry mail.", DateTime.Now);
                 }
                 catch (Exception ex)
                 {
-                    await _emailRepository.MarkEmailFail(emailIdempotency.EmailId, ex.Message);
-                    await _rabbitMQService.InsertMessageToRabbitMQ(emailIdempotency, AppConstant.DLQQueueName);
-                    await AddActionLog(emailIdempotency.EmailId, $"Mail delivery failed at attempt of {emailIdempotency.EmailLog.AttemptCount} And Inserted into DLQ for Retry. Error Message was : {ex.Message}", DateTime.Now);
-                }
-                finally
-                {
-                    await client.DisconnectAsync(true);
+                    await AddActionLog(item.EmailId, $"Retry scheduler Failed to insert message to primary queue for send a retry mail. Error Message was : {ex.Message}", DateTime.Now);
                 }
             }
+            return true;
+        }
+
+        private int GetRescheduleMinutes(int attempt)
+        {
+            var index = attempt - 1;
+            if (index < 0) index = 0;
+            if (index >= _settings.BackoffScheduleMinutes.Count) index = _settings.BackoffScheduleMinutes.Count - 1;
+            return _settings.BackoffScheduleMinutes[index];
         }
 
         private async Task<bool> AddActionLog(Guid emailId, string message ,DateTime? actionAt) {

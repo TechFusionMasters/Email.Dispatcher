@@ -8,6 +8,7 @@ namespace EmailWorker.Contract
         Task<bool> LockEmailSendIdempotency(EmailIdempotency emailIdempotency);
         Task<bool> MarkEmailSuccess(Guid emailId,DateTime actionAt);
         Task<bool> MarkEmailFail(Guid emailId, string lastError);
+        Task<bool> MarkMailAsPublished(EmailIdempotency emailIdempotency);
         Task InsertEmailActionLog(EmailActionLog actionLog);
 
         }

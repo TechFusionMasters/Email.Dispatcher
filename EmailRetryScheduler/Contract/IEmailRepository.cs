@@ -5,10 +5,10 @@ namespace EmailRetryScheduler.Contract
     public interface IEmailRepository
     {
         Task<EmailIdempotency> GetEmailIdempotencyAsync(Guid emailId);
-        Task<bool> LockEmailSendIdempotency(EmailIdempotency emailIdempotency);
-        Task<bool> MarkEmailSuccess(Guid emailId,DateTime actionAt);
-        Task<bool> MarkEmailFail(Guid emailId, string lastError);
+        Task<bool> MarkEmailAsDead(Guid emailId);
+        Task<bool> MarkMailForRetry(Guid emailId, DateTime date);
+        Task<List<EmailIdempotency>> GetRetryMailsForSend();
+        Task<bool> MarkMailAsPublished(Guid id);
         Task InsertEmailActionLog(EmailActionLog actionLog);
-
-        }
     }
+}

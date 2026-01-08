@@ -14,6 +14,7 @@ namespace EmailRetryScheduler
             var builder = Host.CreateApplicationBuilder(args);
 
             builder.Services.AddDbContext<AppDBContext>();
+            builder.Services.Configure<RetryPolicyOptions>(builder.Configuration.GetSection("RetryPolicy"));
             builder.Services.AddScoped<IEmailRepository, EmailRepository>();
             builder.Services.AddScoped<IEmailService, EmailService>();
             builder.Services.AddSingleton<IRabbitMQService, RabbitMQService>();

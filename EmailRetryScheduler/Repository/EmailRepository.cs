@@ -23,44 +23,52 @@ namespace EmailRetryScheduler.Repository
                 .FirstOrDefaultAsync();
         }
 
-        public async Task<bool> LockEmailSendIdempotency(EmailIdempotency emailIdempotency) {
-            var targetEmailIdempotency = await _dBContext.EmailIdempotency
-                .Include(e => e.EmailLog)
-                .Where(e => e.Id == emailIdempotency.Id).FirstOrDefaultAsync();
-            if (targetEmailIdempotency == null) return false;
-            targetEmailIdempotency.EmailLog.EmailStatusId = (int)Constant.Enum.EmailStatus.Scheduled;
-            targetEmailIdempotency.EmailLog.LockedUntil = DateTime.Now.AddSeconds(AppConstant.LeaseLockTime);
-            targetEmailIdempotency.EmailLog.AttemptCount += targetEmailIdempotency.EmailLog.AttemptCount;
-            await _dBContext.SaveChangesAsync();
-            return true;
-        }
-
-        public async Task<bool> MarkEmailSuccess(Guid emailId, DateTime actionAt) {
+        public async Task<bool> MarkEmailAsDead(Guid emailId) {
             var targetEmailIdempotency = await _dBContext.EmailIdempotency
                 .Include(e => e.EmailLog)
                 .Where(e => e.EmailId == emailId).FirstOrDefaultAsync();
             if (targetEmailIdempotency == null) return false;
-            targetEmailIdempotency.EmailLog.EmailStatusId = (int)Constant.Enum.EmailStatus.Sent;
-            targetEmailIdempotency.EmailLog.SentAt = actionAt;
-            targetEmailIdempotency.EmailLog.LockedUntil = null;
-            targetEmailIdempotency.EmailLog.LastError = null;
-            targetEmailIdempotency.CompletedAt = actionAt;
+            targetEmailIdempotency.EmailLog.EmailStatusId = (int)Constant.Enum.EmailStatus.Dead;
+            targetEmailIdempotency.IsPublished = false;
             await _dBContext.SaveChangesAsync();
             return true;
         }
 
-        public async Task<bool> MarkEmailFail(Guid emailId, string lastError)
-        {
+        public async Task<bool> MarkMailForRetry(Guid emailId, DateTime retryAfter) {
             var targetEmailIdempotency = await _dBContext.EmailIdempotency
-                .Include(e => e.EmailLog)
                 .Where(e => e.EmailId == emailId).FirstOrDefaultAsync();
             if (targetEmailIdempotency == null) return false;
-            targetEmailIdempotency.EmailLog.EmailStatusId = (int)Constant.Enum.EmailStatus.Bounced;
-            targetEmailIdempotency.EmailLog.LockedUntil = null;
-            targetEmailIdempotency.EmailLog.LastError = lastError;
+            targetEmailIdempotency.EmailLog.NextAttemptAt = retryAfter;
+            targetEmailIdempotency.IsPublished = false;
             await _dBContext.SaveChangesAsync();
             return true;
         }
+
+        public async Task<List<EmailIdempotency>> GetRetryMailsForSend() {
+            return await _dBContext.EmailIdempotency
+                .AsNoTracking()
+                .Include(e => e.EmailLog)
+                .ThenInclude(e => e.EmailStatus)
+                .Where(e => 
+                    e.EmailLog.EmailStatusId == (int) Constant.Enum.EmailStatus.Bounced
+                    && e.EmailLog.NextAttemptAt < DateTime.Now
+                    && e.IsPublished == false
+                ).ToListAsync();
+        }
+
+        public async Task<bool> MarkMailAsPublished(Guid emailId) {
+            var targetEmailIdempotency = await _dBContext.EmailIdempotency
+                .Where(e => e.EmailId == emailId).FirstOrDefaultAsync();
+            if (targetEmailIdempotency == null) return false;
+            targetEmailIdempotency.IsPublished = true;
+            targetEmailIdempotency.CompletedAt = null;
+            targetEmailIdempotency.EmailLog.SentAt = null;
+            targetEmailIdempotency.EmailLog.LockedUntil = null;
+            targetEmailIdempotency.EmailLog.NextAttemptAt = null;
+            await _dBContext.SaveChangesAsync();
+            return true;
+        }
+
 
         public async Task InsertEmailActionLog(EmailActionLog actionLog) {
             await _dBContext.EmailActionLog.AddAsync(actionLog);

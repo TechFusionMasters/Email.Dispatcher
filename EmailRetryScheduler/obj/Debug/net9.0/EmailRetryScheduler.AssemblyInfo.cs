@@ -15,7 +15,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("EmailRetryScheduler")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f45dcb92e2c9afee62e70b1e7b1b57d31d5a8c13")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+21198c36eb9bc4564f43c5f51e4117835589b230")]
 [assembly: System.Reflection.AssemblyProductAttribute("EmailRetryScheduler")]
 [assembly: System.Reflection.AssemblyTitleAttribute("EmailRetryScheduler")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

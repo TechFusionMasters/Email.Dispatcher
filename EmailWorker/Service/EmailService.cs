@@ -41,7 +41,8 @@ namespace EmailWorker.Service
         }
 
         private async Task<bool> CheckIsEmialIdempotencyIsSendable(EmailIdempotency em_Id) {
-            if ((em_Id.IsPublished && em_Id.CompletedAt == null) && (em_Id.EmailLog.SentAt == null && em_Id.EmailLog.EmailStatusId == (int)Constant.Enum.EmailStatus.Pending && em_Id.EmailLog.LockedUntil < DateTime.Now))
+            var now = DateTime.Now;
+            if ((em_Id.IsPublished && em_Id.CompletedAt == null) && (em_Id.EmailLog.SentAt == null && em_Id.EmailLog.EmailStatusId == (int)Constant.Enum.EmailStatus.Pending && (em_Id.EmailLog.LockedUntil is null || em_Id.EmailLog.LockedUntil < now)) && (em_Id.EmailLog.NextAttemptAt is null || em_Id.EmailLog.NextAttemptAt < now))
             {
                 return true;
             }
@@ -78,8 +79,16 @@ namespace EmailWorker.Service
                 catch (Exception ex)
                 {
                     await _emailRepository.MarkEmailFail(emailIdempotency.EmailId, ex.Message);
-                    await _rabbitMQService.InsertMessageToRabbitMQ(emailIdempotency, AppConstant.DLQQueueName);
-                    await AddActionLog(emailIdempotency.EmailId, $"Mail delivery failed at attempt of {emailIdempotency.EmailLog.AttemptCount} And Inserted into DLQ for Retry. Error Message was : {ex.Message}", DateTime.Now);
+                    await AddActionLog(emailIdempotency.EmailId, $"Mail delivery failed at attempt of {emailIdempotency.EmailLog.AttemptCount}. And Marked as not published. Error Message was : {ex.Message}", DateTime.Now);
+                    try
+                    {
+                        await _rabbitMQService.InsertMessageToRabbitMQ(emailIdempotency, AppConstant.DLQQueueName);
+                        await _emailRepository.MarkMailAsPublished(emailIdempotency);
+                        await AddActionLog(emailIdempotency.EmailId, $"Successfully failed mail message inserted to DLQ for retry", DateTime.Now);
+                    }
+                    catch (Exception e) {
+                        await AddActionLog(emailIdempotency.EmailId, $"Email Worker Failed to insert message to DLQ afterfailed to send a mail. Error Message was : {e.Message}", DateTime.Now);
+                    }
                 }
                 finally
                 {
