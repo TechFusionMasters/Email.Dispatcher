@@ -8,6 +8,7 @@ namespace EmailWorker.Dto
 
         public string MailDomain { get; set; } = null!;
         public string MailPassword { get; set; } = null!;
+        public int FirstRetryAttemptTimeSpanInMinutes { get; set; } = 1;
     }
 
 }

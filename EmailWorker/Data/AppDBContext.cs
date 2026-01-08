@@ -18,5 +18,11 @@ namespace EmailWorker.Data
         public DbSet<EmailIdempotency> EmailIdempotency { get; set; }
         public DbSet<EmailStatus> EmailStatus { get; set; }
         public DbSet<EmailActionLog> EmailActionLog { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<EmailLog>()
+                .HasIndex(e => new { e.EmailStatusId, e.NextAttemptAt });
+        }
     }
 }

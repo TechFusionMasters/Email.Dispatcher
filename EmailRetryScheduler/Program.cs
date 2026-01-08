@@ -3,7 +3,6 @@ using EmailRetryScheduler.Data;
 using EmailRetryScheduler.Dto;
 using EmailRetryScheduler.Repository;
 using EmailRetryScheduler.Service;
-using Microsoft.Extensions.Configuration;
 
 namespace EmailRetryScheduler
 {
@@ -14,7 +13,7 @@ namespace EmailRetryScheduler
             var builder = Host.CreateApplicationBuilder(args);
 
             builder.Services.AddDbContext<AppDBContext>();
-            builder.Services.Configure<RetryPolicyOptions>(builder.Configuration.GetSection("RetryPolicy"));
+            builder.Services.Configure<RabbitMQConfig>(builder.Configuration.GetSection("RabbitMQ"));
             builder.Services.AddScoped<IEmailRepository, EmailRepository>();
             builder.Services.AddScoped<IEmailService, EmailService>();
             builder.Services.AddSingleton<IRabbitMQService, RabbitMQService>();

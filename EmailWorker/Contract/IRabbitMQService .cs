@@ -1,5 +1,4 @@
-﻿using EmailWorker.Dto;
-using EmailWorker.Modal;
+﻿using EmailWorker.Modal;
 
 namespace EmailWorker.Contract
 {

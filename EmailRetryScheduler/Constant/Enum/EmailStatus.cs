@@ -5,7 +5,8 @@
         Pending = 1,
         Scheduled = 2,
         Sent = 3,
-        Bounced = 4,
-        Dead = 5
+        Failed = 4,
+        RetryQueued = 5,
+        Dead = 6
     }
 }

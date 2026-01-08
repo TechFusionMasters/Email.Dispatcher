@@ -1,5 +1,4 @@
 ﻿using EmailWorker.Dto;
-using RabbitMQ.Client;
 
 namespace EmailWorker.Contract
 {

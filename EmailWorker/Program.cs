@@ -1,3 +1,4 @@
+using EmailRetryScheduler.Dto;
 using EmailWorker.Contract;
 using EmailWorker.Data;
 using EmailWorker.Dto;
@@ -16,9 +17,11 @@ namespace EmailWorker
             builder.Services.AddDbContext<AppDBContext>();
             builder.Services.AddScoped<IEmailRepository, EmailRepository>();
             builder.Services.AddScoped<IEmailService, EmailService>();
+            builder.Services.Configure<RabbitMQConfig>(builder.Configuration.GetSection("RabbitMQ"));
+            builder.Services.Configure<RetryPolicyOptions>(builder.Configuration.GetSection("RetryPolicy"));
+            builder.Services.Configure<MailConfig>(builder.Configuration.GetSection("MailConfig"));
             builder.Services.AddSingleton<IRabbitMQService, RabbitMQService>();
             builder.Services.AddHostedService<EmailWorker>();
-            builder.Services.Configure<MailConfig>(builder.Configuration.GetSection("MailConfig"));
 
 
             var host = builder.Build();

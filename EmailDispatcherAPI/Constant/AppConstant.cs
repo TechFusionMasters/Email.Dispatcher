@@ -2,6 +2,6 @@
 {
     internal class AppConstant
     {
-        public const string QueueName = "email.dispatcher.queue";
+        public const string QueueName = "email.dispatcher.send";
     }
 }

@@ -1,6 +1,5 @@
 ﻿using EmailDispatcherAPI.Modal;
 using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
 
 namespace EmailDispatcherAPI.Data
 {
@@ -25,6 +24,9 @@ namespace EmailDispatcherAPI.Data
             modelBuilder.Entity<EmailIdempotency>()
                 .HasIndex(e => e.MessageKey)
                 .IsUnique();
+
+            modelBuilder.Entity<EmailLog>()
+                .HasIndex(e => new { e.EmailStatusId, e.NextAttemptAt });
         }
 
     }

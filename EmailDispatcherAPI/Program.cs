@@ -1,14 +1,11 @@
 
 using EmailDispatcherAPI.Contract;
 using EmailDispatcherAPI.Data;
-using EmailDispatcherAPI.Exception;
+using EmailDispatcherAPI.Dto;
 using EmailDispatcherAPI.Repository;
 using EmailDispatcherAPI.Service;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi;
 using Microsoft.OpenApi.Models;
-using RabbitMQ.Client;
 
 namespace EmailDispatcherAPI
 {
@@ -24,6 +21,7 @@ namespace EmailDispatcherAPI
             builder.Services.AddScoped<IEmailRepository, EmailRepository>();
 
             //Asynchronous Initialization via Hosted Service
+            builder.Services.Configure<RabbitMQConfig>(builder.Configuration.GetSection("RabbitMQ"));
             builder.Services.AddSingleton<RabbitMqConnection>();
             builder.Services.AddSingleton<IRabbitMqConnection>(
                 sp => sp.GetRequiredService<RabbitMqConnection>()
