@@ -20,3 +20,5 @@
 /EmailRetryScheduler/obj
 /EmailRetryScheduler/obj/Debug
 /EmailRetryScheduler/obj/Debug/net9.0
+/EmailRetryScheduler/appsettings.json
+/EmailRetryScheduler/appsettings.Development.json
