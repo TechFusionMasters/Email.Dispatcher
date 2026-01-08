@@ -1,10 +1,4 @@
-using EmailWorker.Constant;
 using EmailWorker.Contract;
-using EmailWorker.Dto;
-using Newtonsoft.Json;
-using RabbitMQ.Client;
-using RabbitMQ.Client.Events;
-using System.Text;
 
 namespace EmailWorker
 {

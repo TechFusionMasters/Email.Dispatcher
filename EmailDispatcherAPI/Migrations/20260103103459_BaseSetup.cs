@@ -83,7 +83,9 @@ namespace EmailDispatcherAPI.Migrations
                         ('Pending'),
                         ('Scheduled'),
                         ('Sent'),
-                        ('Bounced');
+                        ('Failed'),
+                        ('RetryQueued'),
+                        ('Dead');
                 END
             ");
         }

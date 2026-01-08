@@ -2,7 +2,7 @@
 using EmailWorker.Contract;
 using EmailWorker.Dto;
 using EmailWorker.Modal;
-using Microsoft.IdentityModel.Tokens;
+using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
@@ -18,10 +18,17 @@ namespace EmailWorker
         private IConnection _connection;
         private IChannel _channel;
 
-        public RabbitMQService(IServiceScopeFactory serviceScopeFactory)
+        public RabbitMQService(IServiceScopeFactory serviceScopeFactory, IOptions<RabbitMQConfig> rabbitMQConfig)
         {
             _serviceScopeFactory = serviceScopeFactory;
-            _factory = new ConnectionFactory { HostName = "localhost" };
+            var config = rabbitMQConfig.Value;
+            _factory = new ConnectionFactory 
+            { 
+                HostName = config.HostName,
+                Port = config.Port,
+                UserName = config.UserName,
+                Password = config.Password
+            };
         }
 
         public async Task CreateConnection(CancellationToken cancellationToken)
@@ -45,12 +52,18 @@ namespace EmailWorker
 
             consumer.ReceivedAsync += async (model, ea) =>
             {
+                await Task.Delay(5000);
                 if (cancellationToken.IsCancellationRequested) return;
                 var body = ea.Body.ToArray();
                 var messageJson = Encoding.UTF8.GetString(ea.Body.ToArray());
                 var message = JsonConvert.DeserializeObject<RabitMQDto>(messageJson);
-                if (message == null || (message?.MessageKey.IsNullOrEmpty() ?? true) || (Guid.TryParse(message?.EmailId.ToString(),out _)))
+                if (message == null || 
+                    string.IsNullOrEmpty(message.MessageKey) || 
+                    message.EmailId == Guid.Empty)
+                {
                     return;
+                }
+                
                 await this.SendEmail(cancellationToken, message);
                 await _channel.BasicAckAsync(ea.DeliveryTag, false);
                 return;

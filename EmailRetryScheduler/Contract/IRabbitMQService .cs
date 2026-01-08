@@ -1,5 +1,4 @@
-﻿using EmailRetryScheduler.Dto;
-using EmailRetryScheduler.Modal;
+﻿using EmailRetryScheduler.Modal;
 
 namespace EmailRetryScheduler.Contract
 {

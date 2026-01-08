@@ -30,7 +30,7 @@ namespace EmailWorker.Repository
             if (targetEmailIdempotency == null) return false;
             targetEmailIdempotency.EmailLog.EmailStatusId = (int)Constant.Enum.EmailStatus.Scheduled;
             targetEmailIdempotency.EmailLog.LockedUntil = DateTime.Now.AddSeconds(AppConstant.LeaseLockTime);
-            targetEmailIdempotency.EmailLog.AttemptCount += targetEmailIdempotency.EmailLog.AttemptCount;
+            targetEmailIdempotency.EmailLog.AttemptCount += 1;
             await _dBContext.SaveChangesAsync();
             return true;
         }
@@ -50,16 +50,28 @@ namespace EmailWorker.Repository
             return true;
         }
 
-        public async Task<bool> MarkEmailFail(Guid emailId, string lastError)
+        public async Task<bool> MarkEmailFail(Guid emailId, string lastError, DateTime retryTime)
         {
             var targetEmailIdempotency = await _dBContext.EmailIdempotency
                 .Include(e => e.EmailLog)
                 .Where(e => e.EmailId == emailId).FirstOrDefaultAsync();
             if (targetEmailIdempotency == null) return false;
-            targetEmailIdempotency.EmailLog.EmailStatusId = (int)Constant.Enum.EmailStatus.Bounced;
-            targetEmailIdempotency.EmailLog.LockedUntil = null;
+            targetEmailIdempotency.EmailLog.EmailStatusId = (int)Constant.Enum.EmailStatus.RetryQueued;
+            targetEmailIdempotency.EmailLog.LockedUntil = retryTime;
             targetEmailIdempotency.EmailLog.LastError = lastError;
-            targetEmailIdempotency.EmailLog.NextAttemptAt = null;
+            targetEmailIdempotency.EmailLog.NextAttemptAt = retryTime;
+            targetEmailIdempotency.IsPublished = false;
+            await _dBContext.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> MarkEmailAsDead(Guid emailId)
+        {
+            var targetEmailIdempotency = await _dBContext.EmailIdempotency
+                .Include(e => e.EmailLog)
+                .Where(e => e.EmailId == emailId).FirstOrDefaultAsync();
+            if (targetEmailIdempotency == null) return false;
+            targetEmailIdempotency.EmailLog.EmailStatusId = (int)Constant.Enum.EmailStatus.Dead;
             targetEmailIdempotency.IsPublished = false;
             await _dBContext.SaveChangesAsync();
             return true;

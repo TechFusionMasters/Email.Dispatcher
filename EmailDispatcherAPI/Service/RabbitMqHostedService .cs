@@ -1,4 +1,5 @@
-﻿using EmailDispatcherAPI.Contract;
+﻿using EmailDispatcherAPI.Dto;
+using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 
 namespace EmailDispatcherAPI.Service
@@ -8,10 +9,17 @@ namespace EmailDispatcherAPI.Service
         private readonly RabbitMqConnection _connection;
         private readonly ConnectionFactory _factory;
 
-        public RabbitMqHostedService(RabbitMqConnection connection)
+        public RabbitMqHostedService(RabbitMqConnection connection, IOptions<RabbitMQConfig> rabbitMQConfig)
         {
             _connection = connection;
-            _factory = new ConnectionFactory { HostName = "localhost" };
+            var config = rabbitMQConfig.Value;
+            _factory = new ConnectionFactory 
+            { 
+                HostName = config.HostName,
+                Port = config.Port,
+                UserName = config.UserName,
+                Password = config.Password
+            };
         }
 
         public async Task StartAsync(CancellationToken cancellationToken)
