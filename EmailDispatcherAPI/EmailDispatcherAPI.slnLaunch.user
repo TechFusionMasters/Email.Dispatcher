@@ -1,0 +1,19 @@
+[
+  {
+    "Name": "New Profile",
+    "Projects": [
+      {
+        "Path": "EmailDispatcherAPI.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "..\\EmailWorker\\EmailWorker.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "..\\EmailRetryScheduler\\EmailRetryScheduler.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

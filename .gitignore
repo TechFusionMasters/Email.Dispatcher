@@ -1,0 +1,24 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/EmailDispatcherAPI/bin
+/EmailDispatcherAPI/.vs/EmailDispatcherAPI
+/EmailDispatcherAPI/obj
+/EmailWorker/bin
+/EmailWorker/obj
+/EmailDispatcherAPI/appsettings.json
+/EmailDispatcherAPI/appsettings.Development.json
+/EmailWorker/appsettings.json
+/EmailWorker/appsettings.Development.json
+/EmailWorker/appsettings.json
+/EmailWorker/appsettings.Development.json
+/EmailRetryScheduler/appsettings.json
+/EmailRetryScheduler/appsettings.Development.json
+/EmailRetryScheduler/bin
+/EmailRetryScheduler/obj
+/EmailRetryScheduler/obj
+/EmailRetryScheduler/obj/Debug
+/EmailRetryScheduler/obj/Debug/net9.0
+/EmailRetryScheduler/appsettings.json
+/EmailRetryScheduler/appsettings.Development.json
